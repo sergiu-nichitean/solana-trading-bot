@@ -406,7 +406,17 @@ export class Bot {
     const slippage = new Percent(this.config.sellSlippage, 100);
     let timesChecked = 0;
 
+    logger.debug(
+      { mint: poolKeys.baseMint.toString() },
+      `Starting check. timesToCheck: ${timesToCheck}`,
+    );
+
     do {
+      logger.debug(
+        { mint: poolKeys.baseMint.toString() },
+        `Checking ${timesChecked} time`,
+      );
+
       try {
         const poolInfo = await Liquidity.fetchInfo({
           connection: this.connection,
@@ -436,7 +446,7 @@ export class Bot {
 
         await sleep(this.config.priceCheckInterval);
       } catch (e) {
-        logger.trace({ mint: poolKeys.baseMint.toString(), e }, `Failed to check token price`);
+        logger.debug({ mint: poolKeys.baseMint.toString(), e }, `Failed to check token price`);
       } finally {
         timesChecked++;
       }
