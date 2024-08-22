@@ -23,6 +23,7 @@ import { Mutex } from 'async-mutex';
 import BN from 'bn.js';
 import { WarpTransactionExecutor } from './transactions/warp-transaction-executor';
 import { JitoTransactionExecutor } from './transactions/jito-rpc-transaction-executor';
+import { google } from 'googleapis';
 
 export interface BotConfig {
   wallet: Keypair;
@@ -52,6 +53,9 @@ export interface BotConfig {
   filterCheckInterval: number;
   filterCheckDuration: number;
   consecutiveMatchCount: number;
+  googleServiceAccountEmail: string;
+  googleServiceAccountPrivateKey: string;
+  googleSheetId: string;
 }
 
 export class Bot {
@@ -65,6 +69,10 @@ export class Bot {
   private sellExecutionCount = 0;
   public readonly isWarp: boolean = false;
   public readonly isJito: boolean = false;
+
+  // Data for google sheet
+  private buyTime: string = '';
+  private sellAmount: string = '';
 
   constructor(
     private readonly connection: Connection,
@@ -172,6 +180,8 @@ export class Bot {
               `Confirmed buy tx`,
             );
 
+            this.buyTime = this.getCurrentTimestamp();
+
             break;
           }
 
@@ -258,6 +268,20 @@ export class Bot {
               },
               `Confirmed sell tx`,
             );
+
+            this.appendGoogleSheetRow(
+              [
+                [
+                  rawAccount.mint.toString(),
+                  this.buyTime,
+                  this.config.quoteAmount.toFixed(),
+                  this.getCurrentTimestamp(),
+                  this.sellAmount,
+                  `https://dexscreener.com/solana/${rawAccount.mint.toString()}?maker=${this.config.wallet.publicKey}`
+                ]
+              ]
+            );
+
             break;
           }
 
@@ -431,6 +455,8 @@ export class Bot {
           slippage,
         }).amountOut;
 
+        this.sellAmount = amountOut.toFixed();
+
         logger.debug(
           { mint: poolKeys.baseMint.toString() },
           `Take profit: ${takeProfit.toFixed()} | Stop loss: ${stopLoss.toFixed()} | Current: ${amountOut.toFixed()}`,
@@ -451,5 +477,42 @@ export class Bot {
         timesChecked++;
       }
     } while (timesChecked < timesToCheck);
+  }
+
+  private async appendGoogleSheetRow(values: string[][]) {
+    const auth = new google.auth.JWT({
+      email: this.config.googleServiceAccountEmail,
+      key: this.config.googleServiceAccountPrivateKey,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets"]
+    });
+
+    const sheets = google.sheets('v4');
+
+    try {
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: this.config.googleSheetId,
+        auth: auth,
+        range: "Sheet1",
+        valueInputOption: "USER_ENTERED",
+        requestBody: {
+          values: values
+        }
+      });
+    } catch (err) {
+      logger.error('The Google Sheet API returned an error:', err);
+    }
+  }
+
+  private getCurrentTimestamp(): string {
+      const now = new Date();
+
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+      const day = String(now.getDate()).padStart(2, '0');
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   }
 }

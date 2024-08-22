@@ -63,3 +63,8 @@ export const MIN_POOL_SIZE = retrieveEnvVariable('MIN_POOL_SIZE', logger);
 export const MAX_POOL_SIZE = retrieveEnvVariable('MAX_POOL_SIZE', logger);
 export const USE_SNIPE_LIST = retrieveEnvVariable('USE_SNIPE_LIST', logger) === 'true';
 export const SNIPE_LIST_REFRESH_INTERVAL = Number(retrieveEnvVariable('SNIPE_LIST_REFRESH_INTERVAL', logger));
+
+// Google Sheets
+export const GOOGLE_SERVICE_ACCOUNT_EMAIL = retrieveEnvVariable('GOOGLE_SERVICE_ACCOUNT_EMAIL', logger);
+export const GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY = retrieveEnvVariable('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY', logger);
+export const GOOGLE_SHEET_ID = retrieveEnvVariable('GOOGLE_SHEET_ID', logger);

@@ -45,6 +45,9 @@ import {
   FILTER_CHECK_INTERVAL,
   FILTER_CHECK_DURATION,
   CONSECUTIVE_FILTER_MATCHES,
+  GOOGLE_SERVICE_ACCOUNT_EMAIL,
+  GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
+  GOOGLE_SHEET_ID,
 } from './helpers';
 import { version } from './package.json';
 import { WarpTransactionExecutor } from './transactions/warp-transaction-executor';
@@ -190,6 +193,9 @@ const runListener = async () => {
     filterCheckInterval: FILTER_CHECK_INTERVAL,
     filterCheckDuration: FILTER_CHECK_DURATION,
     consecutiveMatchCount: CONSECUTIVE_FILTER_MATCHES,
+    googleServiceAccountEmail: GOOGLE_SERVICE_ACCOUNT_EMAIL,
+    googleServiceAccountPrivateKey: GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
+    googleSheetId: GOOGLE_SHEET_ID
   };
 
   const bot = new Bot(connection, marketCache, poolCache, txExecutor, botConfig);
