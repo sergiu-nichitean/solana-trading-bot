@@ -111,7 +111,7 @@ export class Bot {
   }
 
   public async buy(accountId: PublicKey, poolState: LiquidityStateV4) {
-    logger.trace({ mint: poolState.baseMint }, `Processing new pool...`);
+    logger.debug({ mint: poolState.baseMint }, `Processing new pool...`);
 
     if (this.config.useSnipeList && !this.snipeListCache?.isInList(poolState.baseMint.toString())) {
       logger.debug({ mint: poolState.baseMint.toString() }, `Skipping buy because token is not in a snipe list`);
@@ -146,7 +146,7 @@ export class Bot {
         const match = await this.filterMatch(poolKeys);
 
         if (!match) {
-          logger.trace({ mint: poolKeys.baseMint.toString() }, `Skipping buy because pool doesn't match filters`);
+          logger.debug({ mint: poolKeys.baseMint.toString() }, `Skipping buy because pool doesn't match filters`);
           return;
         }
       }
