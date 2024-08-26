@@ -511,7 +511,7 @@ export class Bot {
         }
       });
     } catch (err) {
-      logger.error('The Google Sheet API returned an error:', err);
+      logger.error({ error: err }, 'The Google Sheet API returned an error.');
     }
   }
 
@@ -529,11 +529,22 @@ export class Bot {
   }
 
   private async wsolBalanceChange(signature: string) {
-    const transactionData = await this.connection.getTransaction(signature, { maxSupportedTransactionVersion: 0 });
+    let transactionData = await this.getTransactionData(signature);
+    let retries = 0;
+
+    do {
+      await sleep(1000);
+      transactionData = await this.getTransactionData(signature);
+      retries++;
+    } while (transactionData == null && retries < 20);
 
     const preWsolBalance = transactionData!.meta!.preTokenBalances![3]!.uiTokenAmount!.uiAmount;
     const postWsolBalance = transactionData!.meta!.postTokenBalances![2]!.uiTokenAmount!.uiAmount;
 
     return postWsolBalance! - preWsolBalance!;
+  }
+
+  private async getTransactionData(signature: string) {
+    return await this.connection.getTransaction(signature, { maxSupportedTransactionVersion: 0 });
   }
 }
