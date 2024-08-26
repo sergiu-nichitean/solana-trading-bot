@@ -72,7 +72,6 @@ export class Bot {
 
   // Data for google sheet
   private buyTime: string = '';
-  private sellAmount: string = '';
 
   constructor(
     private readonly connection: Connection,
@@ -269,6 +268,8 @@ export class Bot {
               `Confirmed sell tx`,
             );
 
+            const balanceChange = await this.wsolBalanceChange(result.signature!);
+
             this.appendGoogleSheetRow(
               [
                 [
@@ -276,7 +277,7 @@ export class Bot {
                   this.buyTime,
                   this.config.quoteAmount.toFixed(),
                   this.getCurrentTimestamp(),
-                  this.sellAmount,
+                  balanceChange!.toString(),
                   `https://dexscreener.com/solana/${rawAccount.mint.toString()}?maker=${this.config.wallet.publicKey}`
                 ]
               ]
@@ -298,6 +299,19 @@ export class Bot {
         }
       }
     } catch (error) {
+      this.appendGoogleSheetRow(
+        [
+          [
+            rawAccount.mint.toString(),
+            this.buyTime,
+            this.config.quoteAmount.toFixed(),
+            this.getCurrentTimestamp(),
+            '0.00',
+            ''
+          ]
+        ]
+      );
+
       logger.error({ mint: rawAccount.mint.toString(), error }, `Failed to sell token`);
     } finally {
       if (this.config.oneTokenAtATime) {
@@ -455,8 +469,6 @@ export class Bot {
           slippage,
         }).amountOut;
 
-        this.sellAmount = amountOut.toFixed();
-
         logger.debug(
           { mint: poolKeys.baseMint.toString() },
           `Take profit: ${takeProfit.toFixed()} | Stop loss: ${stopLoss.toFixed()} | Current: ${amountOut.toFixed()}`,
@@ -514,5 +526,14 @@ export class Bot {
       const seconds = String(now.getSeconds()).padStart(2, '0');
 
       return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  }
+
+  private async wsolBalanceChange(signature: string) {
+    const transactionData = await this.connection.getTransaction(signature, { maxSupportedTransactionVersion: 0 });
+
+    const preWsolBalance = transactionData!.meta!.preTokenBalances![3]!.uiTokenAmount!.uiAmount;
+    const postWsolBalance = transactionData!.meta!.postTokenBalances![2]!.uiTokenAmount!.uiAmount;
+
+    return postWsolBalance! - preWsolBalance!;
   }
 }
