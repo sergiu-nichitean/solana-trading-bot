@@ -33,6 +33,8 @@ export class PoolSizeFilter implements Filter {
         }
       }
 
+      logger.trace({ mint: poolKeys.baseMint.toString() }, `PoolSize: ${poolSize.toFixed()}`);
+
       return { ok: inRange, message: `PoolSize: ${poolSize.toFixed()}` };
     } catch (error) {
       logger.error({ mint: poolKeys.baseMint }, `Failed to check pool size`);
