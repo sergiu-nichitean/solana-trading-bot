@@ -522,8 +522,8 @@ export class Bot {
 
         finalAmountOut = amountOut.toFixed();
 
-        if (amountOut.toNumber() > this.maxValue) {
-          this.maxValue = amountOut.toNumber();
+        if (amountOut.raw > this.maxValue) {
+          this.maxValue = amountOut.raw;
           this.maxValueTime = this.getCurrentTimestamp();
         }
 
