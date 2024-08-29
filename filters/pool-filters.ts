@@ -13,6 +13,7 @@ export interface Filter {
 
 export interface FilterResult {
   ok: boolean;
+  type: string;
   message?: string;
 }
 
@@ -22,46 +23,71 @@ export interface PoolFilterArgs {
   quoteToken: Token;
 }
 
+interface ExecuteResult {
+  outcome: boolean,
+  allResults: FilterResult[]
+}
+
 export class PoolFilters {
-  private readonly filters: Filter[] = [];
+  private readonly allFilters: Filter[] = [];
+  private readonly checkedFilters: string[] = [];
 
   constructor(
     readonly connection: Connection,
     readonly args: PoolFilterArgs,
   ) {
+    const burnFilter = new BurnFilter(connection);
+    const renouncedFreezeFilter = new RenouncedFreezeFilter(connection, CHECK_IF_MINT_IS_RENOUNCED, CHECK_IF_FREEZABLE);
+    const mutableFilter = new MutableFilter(connection, getMetadataAccountDataSerializer(), CHECK_IF_MUTABLE, CHECK_IF_SOCIALS);
+    const poolSizeFilter = new PoolSizeFilter(connection, args.quoteToken, args.minPoolSize, args.maxPoolSize);
+
+    this.allFilters.push(burnFilter);
+    this.allFilters.push(renouncedFreezeFilter);
+    this.allFilters.push(mutableFilter);
+    this.allFilters.push(poolSizeFilter);
+
     if (CHECK_IF_BURNED) {
-      this.filters.push(new BurnFilter(connection));
+      this.checkedFilters.push('Burn');
     }
 
     if (CHECK_IF_MINT_IS_RENOUNCED || CHECK_IF_FREEZABLE) {
-      this.filters.push(new RenouncedFreezeFilter(connection, CHECK_IF_MINT_IS_RENOUNCED, CHECK_IF_FREEZABLE));
+      this.checkedFilters.push('RenouncedFreeze');
     }
 
     if (CHECK_IF_MUTABLE || CHECK_IF_SOCIALS) {
-      this.filters.push(new MutableFilter(connection, getMetadataAccountDataSerializer(), CHECK_IF_MUTABLE, CHECK_IF_SOCIALS));
+      this.checkedFilters.push('MutableSocials');
     }
 
     if (!args.minPoolSize.isZero() || !args.maxPoolSize.isZero()) {
-      this.filters.push(new PoolSizeFilter(connection, args.quoteToken, args.minPoolSize, args.maxPoolSize));
+      this.checkedFilters.push('PoolSize');
     }
   }
 
-  public async execute(poolKeys: LiquidityPoolKeysV4): Promise<boolean> {
-    if (this.filters.length === 0) {
-      return true;
+  public async execute(poolKeys: LiquidityPoolKeysV4): Promise<ExecuteResult> {
+    let outcome: boolean = false;
+
+    if (this.checkedFilters.length === 0) {
+      outcome = true;
     }
 
-    const result = await Promise.all(this.filters.map((f) => f.execute(poolKeys)));
-    const pass = result.every((r) => r.ok);
+    const result = await Promise.all(this.allFilters.map((f) => f.execute(poolKeys)));
+    const resultToConsider = result.filter((r) => this.checkedFilters.includes(r.type));
+    const pass = resultToConsider.every((r) => r.ok);
 
     if (pass) {
-      return true;
+      outcome = true;
     }
 
     for (const filterResult of result.filter((r) => !r.ok)) {
       logger.trace(filterResult.message);
     }
 
-    return false;
+    let results: FilterResult[] = [];
+
+    for (const filterResult of result) {
+      results.push(filterResult);
+    }
+
+    return { outcome: outcome, allResults: results };
   }
 }

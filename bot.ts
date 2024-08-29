@@ -16,9 +16,9 @@ import {
 } from '@solana/spl-token';
 import { Liquidity, LiquidityPoolKeysV4, LiquidityStateV4, Percent, Token, TokenAmount } from '@raydium-io/raydium-sdk';
 import { MarketCache, PoolCache, SnipeListCache } from './cache';
-import { PoolFilters } from './filters';
+import { PoolFilters, FilterResult } from './filters';
 import { TransactionExecutor } from './transactions';
-import { createPoolKeys, logger, NETWORK, sleep } from './helpers';
+import { createPoolKeys, getPoolSize, logger, NETWORK, sleep } from './helpers';
 import { Mutex } from 'async-mutex';
 import BN from 'bn.js';
 import { WarpTransactionExecutor } from './transactions/warp-transaction-executor';
@@ -72,6 +72,14 @@ export class Bot {
 
   // Data for google sheet
   private buyTime: string = '';
+  private sellTriggerTime: string = '';
+  private sellTriggerAmount: string = '';
+  private burnedResult: string = '';
+  private renouncedResult: string = '';
+  private freezableResult: string = '';
+  private mutableResult: string = '';
+  private socialsResult: string = '';
+  private poolSizeResult: string = '';
 
   constructor(
     private readonly connection: Connection,
@@ -141,8 +149,17 @@ export class Bot {
       ]);
       const poolKeys: LiquidityPoolKeysV4 = createPoolKeys(accountId, poolState, market);
 
+      const filterResults = await this.poolFilters.execute(poolKeys);
+
+      this.burnedResult = filterResults.allResults.filter((r) => r.type == 'Burn')[0]?.message?.split(' ')[1]!;
+      this.renouncedResult = filterResults.allResults.filter((r) => r.type == 'RenouncedFreeze')[0]?.message?.split(' ')[1].split(',')[0]!;
+      this.freezableResult = filterResults.allResults.filter((r) => r.type == 'RenouncedFreeze')[0]?.message?.split(' ')[3]!;
+      this.mutableResult = filterResults.allResults.filter((r) => r.type == 'MutableSocials')[0]?.message?.split(' ')[1].split(',')[0]!;
+      this.socialsResult = filterResults.allResults.filter((r) => r.type == 'MutableSocials')[0]?.message?.split(' ')[3]!;
+      this.poolSizeResult = filterResults.allResults.filter((r) => r.type == 'PoolSize')[0]?.message?.split(' ')[2]!;
+
       if (!this.config.useSnipeList) {
-        const match = await this.filterMatch(poolKeys);
+        const match = filterResults.outcome;
 
         if (!match) {
           logger.debug({ mint: poolKeys.baseMint.toString() }, `Skipping buy because pool doesn't match filters`);
@@ -236,7 +253,10 @@ export class Bot {
       const market = await this.marketStorage.get(poolData.state.marketId.toString());
       const poolKeys: LiquidityPoolKeysV4 = createPoolKeys(new PublicKey(poolData.id), poolData.state, market);
 
-      await this.priceMatch(tokenAmountIn, poolKeys);
+      const amountOut = await this.priceMatch(tokenAmountIn, poolKeys);
+
+      this.sellTriggerTime = this.getCurrentTimestamp();
+      this.sellTriggerAmount = amountOut;
 
       for (let i = 0; i < this.config.maxSellRetries; i++) {
         try {
@@ -269,6 +289,7 @@ export class Bot {
             );
 
             const balanceChange = await this.wsolBalanceChange(result.signature!);
+            const poolSize = await getPoolSize(poolKeys, this.config.quoteToken, this.connection);
 
             this.appendGoogleSheetRow(
               [
@@ -276,8 +297,20 @@ export class Bot {
                   rawAccount.mint.toString(),
                   this.buyTime,
                   this.config.quoteAmount.toFixed(),
+                  this.burnedResult,
+                  this.renouncedResult,
+                  this.freezableResult,
+                  this.mutableResult,
+                  this.socialsResult,
+                  this.poolSizeResult,
+                  poolSize,
+                  this.sellTriggerTime,
+                  this.sellTriggerAmount,
                   this.getCurrentTimestamp(),
+                  (i + 1).toString(),
                   balanceChange!.toString(),
+                  '',
+                  '',
                   `https://dexscreener.com/solana/${rawAccount.mint.toString()}?maker=${this.config.wallet.publicKey}`
                 ]
               ]
@@ -305,8 +338,20 @@ export class Bot {
             rawAccount.mint.toString(),
             this.buyTime,
             this.config.quoteAmount.toFixed(),
+            this.burnedResult,
+            this.renouncedResult,
+            this.freezableResult,
+            this.mutableResult,
+            this.socialsResult,
+            this.poolSizeResult,
+            '',
+            this.sellTriggerTime,
+            this.sellTriggerAmount,
             this.getCurrentTimestamp(),
+            this.config.maxSellRetries.toString(),
             '0.00',
+            '',
+            '',
             ''
           ]
         ]
@@ -428,9 +473,9 @@ export class Bot {
     return false;
   }
 
-  private async priceMatch(amountIn: TokenAmount, poolKeys: LiquidityPoolKeysV4) {
+  private async priceMatch(amountIn: TokenAmount, poolKeys: LiquidityPoolKeysV4): Promise<string> {
     if (this.config.priceCheckDuration === 0 || this.config.priceCheckInterval === 0) {
-      return;
+      return '';
     }
 
     const timesToCheck = this.config.priceCheckDuration / this.config.priceCheckInterval;
@@ -448,6 +493,8 @@ export class Bot {
       { mint: poolKeys.baseMint.toString() },
       `Starting check. timesToCheck: ${timesToCheck}`,
     );
+
+    let finalAmountOut = '';
 
     do {
       logger.debug(
@@ -469,6 +516,8 @@ export class Bot {
           slippage,
         }).amountOut;
 
+        finalAmountOut = amountOut.toFixed();
+
         logger.debug(
           { mint: poolKeys.baseMint.toString() },
           `Take profit: ${takeProfit.toFixed()} | Stop loss: ${stopLoss.toFixed()} | Current: ${amountOut.toFixed()}`,
@@ -489,6 +538,8 @@ export class Bot {
         timesChecked++;
       }
     } while (timesChecked < timesToCheck);
+
+    return finalAmountOut;
   }
 
   private async appendGoogleSheetRow(values: string[][]) {
@@ -504,7 +555,7 @@ export class Bot {
       await sheets.spreadsheets.values.append({
         spreadsheetId: this.config.googleSheetId,
         auth: auth,
-        range: "Sheet1",
+        range: "New data",
         valueInputOption: "USER_ENTERED",
         requestBody: {
           values: values
@@ -516,16 +567,16 @@ export class Bot {
   }
 
   private getCurrentTimestamp(): string {
-      const now = new Date();
+    const now = new Date();
 
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are zero-based
-      const day = String(now.getDate()).padStart(2, '0');
-      const hours = String(now.getHours()).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      const seconds = String(now.getSeconds()).padStart(2, '0');
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
 
-      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   }
 
   private async wsolBalanceChange(signature: string) {

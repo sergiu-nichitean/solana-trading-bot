@@ -1,6 +1,7 @@
-import { PublicKey } from '@solana/web3.js';
-import { Liquidity, LiquidityPoolKeys, LiquidityStateV4, MAINNET_PROGRAM_ID, Market } from '@raydium-io/raydium-sdk';
+import { PublicKey, Connection } from '@solana/web3.js';
+import { Liquidity, LiquidityPoolKeys, LiquidityPoolKeysV4, LiquidityStateV4, MAINNET_PROGRAM_ID, Market, Token, TokenAmount } from '@raydium-io/raydium-sdk';
 import { MinimalMarketLayoutV3 } from './market';
+import { logger } from './logger';
 
 export function createPoolKeys(
   id: PublicKey,
@@ -40,4 +41,16 @@ export function createPoolKeys(
     lpVault: accountData.lpVault,
     lookupTableAccount: PublicKey.default,
   };
+}
+
+export async function getPoolSize(poolKeys: LiquidityPoolKeysV4, quoteToken: Token, connection: Connection): Promise<string> {
+  try {
+    const response = await connection.getTokenAccountBalance(poolKeys.quoteVault, connection.commitment);
+    const poolSize = new TokenAmount(quoteToken, response.value.amount, true);
+
+    return poolSize.toFixed();
+  } catch(error) {
+    return '-';
+    logger.trace({ mint: poolKeys.baseMint.toString() }, 'Failed to get pool size for reporting.');
+  }
 }

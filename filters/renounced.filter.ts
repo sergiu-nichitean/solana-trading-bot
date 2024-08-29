@@ -25,13 +25,13 @@ export class RenouncedFreezeFilter implements Filter {
     try {
       const accountInfo = await this.connection.getAccountInfo(poolKeys.baseMint, this.connection.commitment);
       if (!accountInfo?.data) {
-        return { ok: false, message: 'RenouncedFreeze -> Failed to fetch account data' };
+        return { ok: false, type: 'RenouncedFreeze', message: 'MintRenounced: -, Freezable: -' };
       }
 
       const deserialize = MintLayout.decode(accountInfo.data);
-      const renounced = !this.checkRenounced || deserialize.mintAuthorityOption === 0;
-      const freezable = !this.checkFreezable || deserialize.freezeAuthorityOption !== 0;
-      const ok = renounced && !freezable;
+      const renounced = deserialize.mintAuthorityOption === 0;
+      const freezable = deserialize.freezeAuthorityOption !== 0;
+      const ok = (!this.checkRenounced || renounced) && (!this.checkFreezable || !freezable);
       const message: string[] = [];
 
       if (!renounced) {
@@ -42,7 +42,7 @@ export class RenouncedFreezeFilter implements Filter {
         message.push('freeze');
       }
 
-      return { ok: ok, message: ok ? undefined : `RenouncedFreeze -> Creator can ${message.join(' and ')} tokens` };
+      return { ok: ok, type: 'RenouncedFreeze', message: `MintRenounced: ${renounced}, Freezable: ${freezable}` };
     } catch (e) {
       logger.error(
         { mint: poolKeys.baseMint },
@@ -52,6 +52,7 @@ export class RenouncedFreezeFilter implements Filter {
 
     return {
       ok: false,
+      type: 'RenouncedFreeze',
       message: `RenouncedFreeze -> Failed to check if creator can ${this.errorMessage.join(' and ')} tokens`,
     };
   }

@@ -30,31 +30,23 @@ export class MutableFilter implements Filter {
       const metadataAccount = await this.connection.getAccountInfo(metadataPDA.publicKey, this.connection.commitment);
 
       if (!metadataAccount?.data) {
-        return { ok: false, message: 'Mutable -> Failed to fetch account data' };
+        return { ok: false, type: 'MutableSocials', message: 'Mutable: -, Socials: -' };
       }
 
       const deserialize = this.metadataSerializer.deserialize(metadataAccount.data);
-      const mutable = !this.checkMutable || deserialize[0].isMutable;
-      const hasSocials = !this.checkSocials || (await this.hasSocials(deserialize[0]));
-      const ok = !mutable && hasSocials;
-      const message: string[] = [];
+      const mutable =  deserialize[0].isMutable;
+      const hasSocials = await this.hasSocials(deserialize[0]);
+      const ok = (!this.checkMutable || !mutable) && (!this.checkSocials || hasSocials);
 
-      if (mutable) {
-        message.push('metadata can be changed');
-      }
-
-      if (!hasSocials) {
-        message.push('has no socials');
-      }
-
-      return { ok: ok, message: ok ? undefined : `MutableSocials -> Token ${message.join(' and ')}` };
+      return { ok: ok, type: 'MutableSocials', message: `Mutable: ${mutable}, Socials: ${hasSocials}` };
     } catch (e) {
       logger.error({ mint: poolKeys.baseMint }, `MutableSocials -> Failed to check ${this.errorMessage.join(' and ')}`);
     }
 
     return {
       ok: false,
-      message: `MutableSocials -> Failed to check ${this.errorMessage.join(' and ')}`,
+      type: 'MutableSocials',
+      message: 'Mutable: -, Socials: -',
     };
   }
 
