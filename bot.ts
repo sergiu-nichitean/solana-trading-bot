@@ -153,6 +153,8 @@ export class Bot {
 
       const filterResults = await this.poolFilters.execute(poolKeys);
 
+      logger.trace({ filterResults: filterResults }, 'Filter results.');
+
       this.burnedResult = filterResults.allResults.filter((r) => r.type == 'Burn')[0]?.message?.split(' ')[1]!;
       this.renouncedResult = filterResults.allResults.filter((r) => r.type == 'RenouncedFreeze')[0]?.message?.split(' ')[1].split(',')[0]!;
       this.freezableResult = filterResults.allResults.filter((r) => r.type == 'RenouncedFreeze')[0]?.message?.split(' ')[3]!;

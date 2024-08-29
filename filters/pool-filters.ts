@@ -72,6 +72,11 @@ export class PoolFilters {
 
     const result = await Promise.all(this.allFilters.map((f) => f.execute(poolKeys)));
     const resultToConsider = result.filter((r) => this.checkedFilters.includes(r.type));
+
+    logger.trace({ result: result }, 'Result');
+    logger.trace({ resultToConsider: resultToConsider }, 'resultToConsider');
+    logger.trace({ checkedFilters: this.checkedFilters }, 'this.checkedFilters');
+
     const pass = resultToConsider.every((r) => r.ok);
 
     if (pass) {
