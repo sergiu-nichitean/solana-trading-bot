@@ -80,7 +80,7 @@ export class Bot {
   private mutableResult: string = '';
   private socialsResult: string = '';
   private poolSizeResult: string = '';
-  private maxValue: number;
+  private maxValue: number = 0;
   private maxValueTime: string = '';
 
   constructor(
@@ -311,7 +311,7 @@ export class Bot {
                   this.getCurrentTimestamp(),
                   (i + 1).toString(),
                   balanceChange!.toString(),
-                  this.maxValue,
+                  this.maxValue.toFixed(),
                   this.maxValueTime,
                   `https://dexscreener.com/solana/${rawAccount.mint.toString()}?maker=${this.config.wallet.publicKey}`
                 ]
@@ -352,7 +352,7 @@ export class Bot {
             this.getCurrentTimestamp(),
             this.config.maxSellRetries.toString(),
             '0.00',
-            this.maxValue,
+            this.maxValue.toFixed(),
             this.maxValueTime,
             ''
           ]
@@ -520,8 +520,8 @@ export class Bot {
 
         finalAmountOut = amountOut.toFixed();
 
-        if (amountOut.gt(this.maxValue)) {
-          this.maxValue = amountOut;
+        if (amountOut.toNumber() > this.maxValue) {
+          this.maxValue = amountOut.toNumber();
           this.maxValueTime = this.getCurrentTimestamp();
         }
 
