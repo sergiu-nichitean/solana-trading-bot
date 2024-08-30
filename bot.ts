@@ -145,12 +145,19 @@ export class Bot {
 
       logger.trace({ filterResults: filterResults }, 'Filter results.');
 
-      this.reportingData[poolState.baseMint.toString()].burnedResult = filterResults.allResults.filter((r) => r.type == 'Burn')[0]?.message?.split(' ')[1]!;
-      this.reportingData[poolState.baseMint.toString()].renouncedResult = filterResults.allResults.filter((r) => r.type == 'RenouncedFreeze')[0]?.message?.split(' ')[1].split(',')[0]!;
-      this.reportingData[poolState.baseMint.toString()].freezableResult = filterResults.allResults.filter((r) => r.type == 'RenouncedFreeze')[0]?.message?.split(' ')[3]!;
-      this.reportingData[poolState.baseMint.toString()].mutableResult = filterResults.allResults.filter((r) => r.type == 'MutableSocials')[0]?.message?.split(' ')[1].split(',')[0]!;
-      this.reportingData[poolState.baseMint.toString()].socialsResult = filterResults.allResults.filter((r) => r.type == 'MutableSocials')[0]?.message?.split(' ')[3]!;
-      this.reportingData[poolState.baseMint.toString()].poolSizeResult = filterResults.allResults.filter((r) => r.type == 'PoolSize')[0]?.message?.split(' ')[2]!;
+      this.reportingData[poolState.baseMint.toString()] = {
+        buyTime: '',
+        sellTriggerTime: '',
+        sellTriggerAmount: '',
+        burnedResult: filterResults.allResults.filter((r) => r.type == 'Burn')[0]?.message?.split(' ')[1]!,
+        renouncedResult: filterResults.allResults.filter((r) => r.type == 'RenouncedFreeze')[0]?.message?.split(' ')[1].split(',')[0]!,
+        freezableResult: filterResults.allResults.filter((r) => r.type == 'RenouncedFreeze')[0]?.message?.split(' ')[3]!,
+        mutableResult: filterResults.allResults.filter((r) => r.type == 'MutableSocials')[0]?.message?.split(' ')[1].split(',')[0]!,
+        socialsResult: filterResults.allResults.filter((r) => r.type == 'MutableSocials')[0]?.message?.split(' ')[3]!,
+        poolSizeResult: filterResults.allResults.filter((r) => r.type == 'PoolSize')[0]?.message?.split(' ')[2]!,
+        maxValue: '',
+        maxValueTime: '',
+      }
 
       if (!this.config.useSnipeList) {
         const match = filterResults.outcome;
@@ -190,19 +197,7 @@ export class Bot {
               `Confirmed buy tx`,
             );
 
-            this.reportingData[poolState.baseMint.toString()] = {
-              buyTime: this.getCurrentTimestamp(),
-              sellTriggerTime: '',
-              sellTriggerAmount: '',
-              burnedResult: '',
-              renouncedResult: '',
-              freezableResult: '',
-              mutableResult: '',
-              socialsResult: '',
-              poolSizeResult: '',
-              maxValue: '',
-              maxValueTime: '',
-            };
+            this.reportingData[poolState.baseMint.toString()].buyTime = this.getCurrentTimestamp();
 
             break;
           }
