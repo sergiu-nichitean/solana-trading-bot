@@ -18,7 +18,7 @@ import { Liquidity, LiquidityPoolKeysV4, LiquidityStateV4, Percent, Token, Token
 import { MarketCache, PoolCache, SnipeListCache } from './cache';
 import { PoolFilters, FilterResult } from './filters';
 import { TransactionExecutor } from './transactions';
-import { createPoolKeys, getPoolSize, logger, NETWORK, sleep } from './helpers';
+import { createPoolKeys, getPoolSize, logger, NETWORK, sleep, TokenData } from './helpers';
 import { Mutex } from 'async-mutex';
 import BN from 'bn.js';
 import { WarpTransactionExecutor } from './transactions/warp-transaction-executor';
@@ -71,17 +71,7 @@ export class Bot {
   public readonly isJito: boolean = false;
 
   // Data for google sheet
-  private buyTime: string = '';
-  private sellTriggerTime: string = '';
-  private sellTriggerAmount: string = '';
-  private burnedResult: string = '';
-  private renouncedResult: string = '';
-  private freezableResult: string = '';
-  private mutableResult: string = '';
-  private socialsResult: string = '';
-  private poolSizeResult: string = '';
-  private maxValue: string = '';
-  private maxValueTime: string = '';
+  private reportingData: TokenData = {};
 
   constructor(
     private readonly connection: Connection,
@@ -155,12 +145,12 @@ export class Bot {
 
       logger.trace({ filterResults: filterResults }, 'Filter results.');
 
-      this.burnedResult = filterResults.allResults.filter((r) => r.type == 'Burn')[0]?.message?.split(' ')[1]!;
-      this.renouncedResult = filterResults.allResults.filter((r) => r.type == 'RenouncedFreeze')[0]?.message?.split(' ')[1].split(',')[0]!;
-      this.freezableResult = filterResults.allResults.filter((r) => r.type == 'RenouncedFreeze')[0]?.message?.split(' ')[3]!;
-      this.mutableResult = filterResults.allResults.filter((r) => r.type == 'MutableSocials')[0]?.message?.split(' ')[1].split(',')[0]!;
-      this.socialsResult = filterResults.allResults.filter((r) => r.type == 'MutableSocials')[0]?.message?.split(' ')[3]!;
-      this.poolSizeResult = filterResults.allResults.filter((r) => r.type == 'PoolSize')[0]?.message?.split(' ')[2]!;
+      this.reportingData[poolKeys.baseMint.toString()].burnedResult = filterResults.allResults.filter((r) => r.type == 'Burn')[0]?.message?.split(' ')[1]!;
+      this.reportingData[poolKeys.baseMint.toString()].renouncedResult = filterResults.allResults.filter((r) => r.type == 'RenouncedFreeze')[0]?.message?.split(' ')[1].split(',')[0]!;
+      this.reportingData[poolKeys.baseMint.toString()].freezableResult = filterResults.allResults.filter((r) => r.type == 'RenouncedFreeze')[0]?.message?.split(' ')[3]!;
+      this.reportingData[poolKeys.baseMint.toString()].mutableResult = filterResults.allResults.filter((r) => r.type == 'MutableSocials')[0]?.message?.split(' ')[1].split(',')[0]!;
+      this.reportingData[poolKeys.baseMint.toString()].socialsResult = filterResults.allResults.filter((r) => r.type == 'MutableSocials')[0]?.message?.split(' ')[3]!;
+      this.reportingData[poolKeys.baseMint.toString()].poolSizeResult = filterResults.allResults.filter((r) => r.type == 'PoolSize')[0]?.message?.split(' ')[2]!;
 
       if (!this.config.useSnipeList) {
         const match = filterResults.outcome;
@@ -200,7 +190,19 @@ export class Bot {
               `Confirmed buy tx`,
             );
 
-            this.buyTime = this.getCurrentTimestamp();
+            this.reportingData[poolState.baseMint.toString()] = {
+              buyTime: this.getCurrentTimestamp(),
+              sellTriggerTime: '',
+              sellTriggerAmount: '',
+              burnedResult: '',
+              renouncedResult: '',
+              freezableResult: '',
+              mutableResult: '',
+              socialsResult: '',
+              poolSizeResult: '',
+              maxValue: '',
+              maxValueTime: '',
+            };
 
             break;
           }
@@ -259,8 +261,8 @@ export class Bot {
 
       const amountOut = await this.priceMatch(tokenAmountIn, poolKeys);
 
-      this.sellTriggerTime = this.getCurrentTimestamp();
-      this.sellTriggerAmount = amountOut;
+      this.reportingData[poolKeys.baseMint.toString()].sellTriggerTime = this.getCurrentTimestamp();
+      this.reportingData[poolKeys.baseMint.toString()].sellTriggerAmount = amountOut;
 
       for (let i = 0; i < this.config.maxSellRetries; i++) {
         try {
@@ -294,27 +296,28 @@ export class Bot {
 
             const balanceChange = await this.wsolBalanceChange(result.signature!);
             const poolSize = await getPoolSize(poolKeys, this.config.quoteToken, this.connection);
+            const currentTokenData = this.reportingData[rawAccount.mint.toString()];
 
             this.appendGoogleSheetRow(
               [
                 [
                   rawAccount.mint.toString(),
-                  this.buyTime,
+                  currentTokenData.buyTime,
                   this.config.quoteAmount.toFixed(),
-                  this.burnedResult,
-                  this.renouncedResult,
-                  this.freezableResult,
-                  this.mutableResult,
-                  this.socialsResult,
-                  this.poolSizeResult,
+                  currentTokenData.burnedResult,
+                  currentTokenData.renouncedResult,
+                  currentTokenData.freezableResult,
+                  currentTokenData.mutableResult,
+                  currentTokenData.socialsResult,
+                  currentTokenData.poolSizeResult,
                   poolSize,
-                  this.sellTriggerTime,
-                  this.sellTriggerAmount,
+                  currentTokenData.sellTriggerTime,
+                  currentTokenData.sellTriggerAmount,
                   this.getCurrentTimestamp(),
                   (i + 1).toString(),
                   balanceChange!.toString(),
-                  this.maxValue,
-                  this.maxValueTime,
+                  currentTokenData.maxValue,
+                  currentTokenData.maxValueTime,
                   `https://dexscreener.com/solana/${rawAccount.mint.toString()}?maker=${this.config.wallet.publicKey}`
                 ]
               ]
@@ -336,26 +339,28 @@ export class Bot {
         }
       }
     } catch (error) {
+      const currentTokenData = this.reportingData[rawAccount.mint.toString()];
+
       this.appendGoogleSheetRow(
         [
           [
             rawAccount.mint.toString(),
-            this.buyTime,
+            currentTokenData.buyTime,
             this.config.quoteAmount.toFixed(),
-            this.burnedResult,
-            this.renouncedResult,
-            this.freezableResult,
-            this.mutableResult,
-            this.socialsResult,
-            this.poolSizeResult,
+            currentTokenData.burnedResult,
+            currentTokenData.renouncedResult,
+            currentTokenData.freezableResult,
+            currentTokenData.mutableResult,
+            currentTokenData.socialsResult,
+            currentTokenData.poolSizeResult,
             '',
-            this.sellTriggerTime,
-            this.sellTriggerAmount,
+            currentTokenData.sellTriggerTime,
+            currentTokenData.sellTriggerAmount,
             this.getCurrentTimestamp(),
             this.config.maxSellRetries.toString(),
             '0.00',
-            this.maxValue,
-            this.maxValueTime,
+            currentTokenData.maxValue,
+            currentTokenData.maxValueTime,
             ''
           ]
         ]
@@ -499,7 +504,6 @@ export class Bot {
     );
 
     let finalAmountOut = '';
-    this.maxValue = '';
 
     do {
       logger.debug(
@@ -523,11 +527,11 @@ export class Bot {
 
         finalAmountOut = amountOut.toFixed();
         const finalAmountOutNumber: number = +finalAmountOut;
-        const maxValueNumber = +this.maxValue;
+        const maxValueNumber = +this.reportingData[poolKeys.baseMint.toString()].maxValue;
 
         if (finalAmountOutNumber > maxValueNumber) {
-          this.maxValue = finalAmountOut;
-          this.maxValueTime = this.getCurrentTimestamp();
+          this.reportingData[poolKeys.baseMint.toString()].maxValue = finalAmountOut;
+          this.reportingData[poolKeys.baseMint.toString()].maxValueTime = this.getCurrentTimestamp();
         }
 
         logger.debug(
