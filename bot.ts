@@ -80,7 +80,7 @@ export class Bot {
   private mutableResult: string = '';
   private socialsResult: string = '';
   private poolSizeResult: string = '';
-  private maxValue: number = 0;
+  private maxValue: string = '';
   private maxValueTime: string = '';
 
   constructor(
