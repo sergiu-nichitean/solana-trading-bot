@@ -145,12 +145,12 @@ export class Bot {
 
       logger.trace({ filterResults: filterResults }, 'Filter results.');
 
-      this.reportingData[poolKeys.baseMint.toString()].burnedResult = filterResults.allResults.filter((r) => r.type == 'Burn')[0]?.message?.split(' ')[1]!;
-      this.reportingData[poolKeys.baseMint.toString()].renouncedResult = filterResults.allResults.filter((r) => r.type == 'RenouncedFreeze')[0]?.message?.split(' ')[1].split(',')[0]!;
-      this.reportingData[poolKeys.baseMint.toString()].freezableResult = filterResults.allResults.filter((r) => r.type == 'RenouncedFreeze')[0]?.message?.split(' ')[3]!;
-      this.reportingData[poolKeys.baseMint.toString()].mutableResult = filterResults.allResults.filter((r) => r.type == 'MutableSocials')[0]?.message?.split(' ')[1].split(',')[0]!;
-      this.reportingData[poolKeys.baseMint.toString()].socialsResult = filterResults.allResults.filter((r) => r.type == 'MutableSocials')[0]?.message?.split(' ')[3]!;
-      this.reportingData[poolKeys.baseMint.toString()].poolSizeResult = filterResults.allResults.filter((r) => r.type == 'PoolSize')[0]?.message?.split(' ')[2]!;
+      this.reportingData[poolState.baseMint.toString()].burnedResult = filterResults.allResults.filter((r) => r.type == 'Burn')[0]?.message?.split(' ')[1]!;
+      this.reportingData[poolState.baseMint.toString()].renouncedResult = filterResults.allResults.filter((r) => r.type == 'RenouncedFreeze')[0]?.message?.split(' ')[1].split(',')[0]!;
+      this.reportingData[poolState.baseMint.toString()].freezableResult = filterResults.allResults.filter((r) => r.type == 'RenouncedFreeze')[0]?.message?.split(' ')[3]!;
+      this.reportingData[poolState.baseMint.toString()].mutableResult = filterResults.allResults.filter((r) => r.type == 'MutableSocials')[0]?.message?.split(' ')[1].split(',')[0]!;
+      this.reportingData[poolState.baseMint.toString()].socialsResult = filterResults.allResults.filter((r) => r.type == 'MutableSocials')[0]?.message?.split(' ')[3]!;
+      this.reportingData[poolState.baseMint.toString()].poolSizeResult = filterResults.allResults.filter((r) => r.type == 'PoolSize')[0]?.message?.split(' ')[2]!;
 
       if (!this.config.useSnipeList) {
         const match = filterResults.outcome;
@@ -261,8 +261,8 @@ export class Bot {
 
       const amountOut = await this.priceMatch(tokenAmountIn, poolKeys);
 
-      this.reportingData[poolKeys.baseMint.toString()].sellTriggerTime = this.getCurrentTimestamp();
-      this.reportingData[poolKeys.baseMint.toString()].sellTriggerAmount = amountOut;
+      this.reportingData[rawAccount.mint.toString()].sellTriggerTime = this.getCurrentTimestamp();
+      this.reportingData[rawAccount.mint.toString()].sellTriggerAmount = amountOut;
 
       for (let i = 0; i < this.config.maxSellRetries; i++) {
         try {
