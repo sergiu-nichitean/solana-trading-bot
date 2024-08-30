@@ -499,6 +499,7 @@ export class Bot {
     );
 
     let finalAmountOut = '';
+    this.maxValue = '';
 
     do {
       logger.debug(
