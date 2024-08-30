@@ -313,7 +313,7 @@ export class Bot {
                   this.getCurrentTimestamp(),
                   (i + 1).toString(),
                   balanceChange!.toString(),
-                  this.maxValue.toFixed(),
+                  this.maxValue,
                   this.maxValueTime,
                   `https://dexscreener.com/solana/${rawAccount.mint.toString()}?maker=${this.config.wallet.publicKey}`
                 ]
@@ -354,7 +354,7 @@ export class Bot {
             this.getCurrentTimestamp(),
             this.config.maxSellRetries.toString(),
             '0.00',
-            this.maxValue.toFixed(),
+            this.maxValue,
             this.maxValueTime,
             ''
           ]
@@ -521,9 +521,11 @@ export class Bot {
         }).amountOut;
 
         finalAmountOut = amountOut.toFixed();
+        const finalAmountOutNumber: number = +finalAmountOut;
+        const maxValueNumber = +this.maxValue;
 
-        if (amountOut.raw.toNumber() > this.maxValue) {
-          this.maxValue = amountOut.raw.toNumber();
+        if (finalAmountOutNumber > maxValueNumber) {
+          this.maxValue = finalAmountOut;
           this.maxValueTime = this.getCurrentTimestamp();
         }
 
