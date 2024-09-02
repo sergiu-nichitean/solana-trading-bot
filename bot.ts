@@ -228,6 +228,8 @@ export class Bot {
       this.sellExecutionCount++;
     }
 
+    const currentTokenData = this.reportingData[rawAccount.mint.toString()];
+
     try {
       logger.trace({ mint: rawAccount.mint }, `Processing new token...`);
 
@@ -258,6 +260,8 @@ export class Bot {
 
       this.reportingData[rawAccount.mint.toString()].sellTriggerTime = this.getCurrentTimestamp();
       this.reportingData[rawAccount.mint.toString()].sellTriggerAmount = amountOut;
+
+      let transactionTotallyFailed = false;
 
       for (let i = 0; i < this.config.maxSellRetries; i++) {
         try {
@@ -291,7 +295,6 @@ export class Bot {
 
             const balanceChange = await this.wsolBalanceChange(result.signature!);
             const poolSize = await getPoolSize(poolKeys, this.config.quoteToken, this.connection);
-            const currentTokenData = this.reportingData[rawAccount.mint.toString()];
 
             this.appendGoogleSheetRow(
               [
@@ -321,6 +324,10 @@ export class Bot {
             break;
           }
 
+          if (i == this.config.maxSellRetries - 1) {
+            transactionTotallyFailed = true;
+          }
+
           logger.info(
             {
               mint: rawAccount.mint.toString(),
@@ -330,12 +337,41 @@ export class Bot {
             `Error confirming sell tx`,
           );
         } catch (error) {
+          if (i == this.config.maxSellRetries - 1) {
+            transactionTotallyFailed = true;
+          }
+
           logger.debug({ mint: rawAccount.mint.toString(), error }, `Error confirming sell transaction`);
         }
       }
-    } catch (error) {
-      const currentTokenData = this.reportingData[rawAccount.mint.toString()];
 
+      if (transactionTotallyFailed) {
+        this.appendGoogleSheetRow(
+          [
+            [
+              rawAccount.mint.toString(),
+              currentTokenData.buyTime,
+              this.config.quoteAmount.toFixed(),
+              currentTokenData.burnedResult,
+              currentTokenData.renouncedResult,
+              currentTokenData.freezableResult,
+              currentTokenData.mutableResult,
+              currentTokenData.socialsResult,
+              currentTokenData.poolSizeResult,
+              '',
+              currentTokenData.sellTriggerTime,
+              currentTokenData.sellTriggerAmount,
+              this.getCurrentTimestamp(),
+              this.config.maxSellRetries.toString(),
+              '0.00',
+              currentTokenData.maxValue,
+              currentTokenData.maxValueTime,
+              ''
+            ]
+          ]
+        );
+      }
+    } catch (error) {
       this.appendGoogleSheetRow(
         [
           [
