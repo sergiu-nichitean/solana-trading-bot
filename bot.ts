@@ -237,6 +237,32 @@ export class Bot {
 
       if (!poolData) {
         logger.trace({ mint: rawAccount.mint.toString() }, `Token pool data is not found, can't sell`);
+
+        this.appendGoogleSheetRow(
+          [
+            [
+              rawAccount.mint.toString(),
+              currentTokenData.buyTime,
+              this.config.quoteAmount.toFixed(),
+              currentTokenData.burnedResult,
+              currentTokenData.renouncedResult,
+              currentTokenData.freezableResult,
+              currentTokenData.mutableResult,
+              currentTokenData.socialsResult,
+              currentTokenData.poolSizeResult,
+              '',
+              currentTokenData.sellTriggerTime,
+              currentTokenData.sellTriggerAmount,
+              this.getCurrentTimestamp(),
+              '0',
+              '0.00',
+              currentTokenData.maxValue,
+              currentTokenData.maxValueTime,
+              `https://dexscreener.com/solana/${rawAccount.mint.toString()}?maker=${this.config.wallet.publicKey}`
+            ]
+          ]
+        );
+
         return;
       }
 
@@ -366,7 +392,7 @@ export class Bot {
               '0.00',
               currentTokenData.maxValue,
               currentTokenData.maxValueTime,
-              ''
+              `https://dexscreener.com/solana/${rawAccount.mint.toString()}?maker=${this.config.wallet.publicKey}`
             ]
           ]
         );
@@ -392,7 +418,7 @@ export class Bot {
             '0.00',
             currentTokenData.maxValue,
             currentTokenData.maxValueTime,
-            ''
+            `https://dexscreener.com/solana/${rawAccount.mint.toString()}?maker=${this.config.wallet.publicKey}`
           ]
         ]
       );
